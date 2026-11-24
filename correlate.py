@@ -7,7 +7,7 @@ import json
 import math
 import sys
 
-MAX_DISTANCE_M = 200 # meters
+MAX_DISTANCE_M = 200 # sensors are accurate to 100 m each, so the same object can show up 200 m apart
 
 def load_sensor1(path):
     """Read the CSV sensor file. Return a list of readings."""
@@ -74,7 +74,7 @@ def distance_m(a, b):
     dlambda = math.radians(lon2 - lon1)
 
     a = (math.sin(dphi /2) ** 2 + math.cos(phil) * math.cos(phil2) * math.sin(dlambda / 2) ** 2)
-    a = min(1.0, max(0.0, a))
+    a = min(1.0, max(0.0, a)) # guard against float error pushing it slightly outside 0..1
 
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     distance = R * c
@@ -83,9 +83,12 @@ def distance_m(a, b):
 
 def correlate(sensor1, sensor2, max_distance_m):
     """Return {sensor1_id: sensor2_id} for readings that match."""
+
+    # drop readings with impossible coordinates
     sensor1 = [r for r in sensor1 if is_valid(r)]
     sensor2 = [r for r in sensor2 if is_valid(r)]
-
+    
+    # every pair that's close enough to be the same object
     candidates = []
     for reading1 in sensor1:
         for reading2 in sensor2:
@@ -93,8 +96,10 @@ def correlate(sensor1, sensor2, max_distance_m):
             if d <= max_distance_m:
                 candidates.append((d, reading1["id"], reading2["id"]))
 
+    # closest pairs first, so a reading goes to its nearest match
     candidates.sort()
 
+    # each id can only be used once
     correlated_data = {}
     used1 = set()
     used2 = set()
